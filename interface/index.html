@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LA Snake</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #000; overflow: hidden; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <script type="module">
+    import { GameLoop } from './src/api/game-loop.js'
+    import { CanvasRenderer } from './src/integrations/canvas.js'
+    import { KeyboardHandler } from './src/integrations/keyboard.js'
+
+    const canvas = document.getElementById('game')
+    canvas.width = window.innerWidth
+    canvas.height = window.innerHeight
+
+    const cellSize = 30
+    const gridWidth = Math.floor(canvas.width / cellSize)
+    const gridHeight = Math.floor(canvas.height / cellSize)
+    
+    const renderer = new CanvasRenderer(canvas, gridWidth, gridHeight)
+    let game = null
+    let gameState = 'intro'
+
+    function startGame() {
+      gameState = 'playing'
+      renderer.clear()
+      game = new GameLoop(gridWidth, gridHeight, keyboardHandler,
+        (state) => {
+          renderer.clear()
+          renderer.drawFood(state.food)
+          renderer.drawSnake(state.snake)
+          renderer.drawScore(state.score, game.highScores.get())
+        },
+        (scoreData) => {
+          gameState = 'gameover'
+          renderer.clear()
+          renderer.drawGameOver(scoreData.score, scoreData.highScore, scoreData.isNewHighScore)
+        }
+      )
+      game.start()
+    }
+
+    const keyboardHandler = new KeyboardHandler(
+      (direction) => { if (game && gameState === 'playing') game.changeDirection(direction) },
+      () => { if (gameState === 'gameover') startGame() }
+    )
+
+    let touchStartX = 0, touchStartY = 0
+    canvas.addEventListener('touchstart', (e) => {
+      touchStartX = e.touches[0].clientX
+      touchStartY = e.touches[0].clientY
+    }, { passive: true })
+
+    canvas.addEventListener('touchend', (e) => {
+      if (!game) return
+      const dx = e.changedTouches[0].clientX - touchStartX
+      const dy = e.changedTouches[0].clientY - touchStartY
+      if (Math.abs(dx) > Math.abs(dy)) {
+        if (dx > 30) game.changeDirection({ x: 1, y: 0 })
+        else if (dx < -30) game.changeDirection({ x: -1, y: 0 })
+      } else {
+        if (dy > 30) game.changeDirection({ x: 0, y: 1 })
+        else if (dy < -30) game.changeDirection({ x: 0, y: -1 })
+      }
+    }, { passive: true })
+
+    canvas.addEventListener('click', () => { if (gameState === 'gameover') startGame() })
+
+    startGame()
+  </script>
+</body>
+</html>
